@@ -38,7 +38,7 @@ def post_papers_slack(papers):
     
     final_message = "".join(messages)
     print("投稿内容:\n", final_message)
-    # post_to_slack(final_message)
+    post_to_slack(final_message)
     
 
 
