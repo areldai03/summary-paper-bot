@@ -27,7 +27,7 @@ def summarize_paper_vllm(paper):
         以下の論文を日本語で要約してください。
 
         - 背景・目的、方法（実験）、結果の順で整理してください。
-        - 各項目は *太字の見出し* をつけ、箇条書きで3〜5点程度にまとめてください。
+        - 各項目は *太字の見出し*(*背景・目的*のように) をつけてまとめてください。
         - Slackで読みやすい形式（短文・改行多め）にしてください。
         - 専門的なニュアンスは保ったまま、冗長な説明は省いてください。
 
@@ -52,7 +52,7 @@ def summarize_paper_vllm(paper):
 
     # --- 2) サンプリングパラメータ ---
     sampling_params = SamplingParams(
-        max_tokens=256,
+        max_tokens=1024,
         temperature=0.7,
         top_k=50,
         top_p=0.9,
@@ -73,15 +73,16 @@ def summarize_paper_vllm(paper):
     entries = encoding.parse_messages_from_completion_tokens(output_tokens, Role.ASSISTANT)
     summary_texts = []
     for e in entries:
-        if hasattr(e, "content"):
-            for c in e.content:
-                if hasattr(c, "text"):
-                    summary_texts.append(c.text)
+        if e.channel == "final":  # finalだけ抽出
+            if hasattr(e, "content"):
+                for c in e.content:
+                    if hasattr(c, "text"):
+                        summary_texts.append(c.text)
 
     summary_text = "\n".join(summary_texts)
 
     # --- 5) Slack用に整形 ---
-    slack_text = f"*{title}*\n<{url}>\n{summary_text.strip()}"
+    slack_text = f"*{title}*\n<{url}>\n{summary_text.strip()}\n\n"
     return slack_text
 
 
