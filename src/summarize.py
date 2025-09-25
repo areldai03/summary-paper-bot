@@ -1,3 +1,4 @@
+import re
 from vllm import LLM, SamplingParams
 from openai_harmony import (
     HarmonyEncodingName,
@@ -27,9 +28,12 @@ def summarize_paper_vllm(paper):
         以下の論文を日本語で要約してください。
 
         - 背景・目的、方法（実験）、結果の順で整理してください。
+        - 箇条書きで示す際に，文頭に "- " を付与してください。
         - 各項目は *太字の見出し*(*背景・目的*のように) をつけてまとめてください。
-        - Slackで読みやすい形式（短文・改行多め）にしてください。
+        - ただし、本文には * を含めないでください。
+        - 短文，改行多めの形式にしてください。
         - 専門的なニュアンスは保ったまま、冗長な説明は省いてください。
+        - 実装に関するGitHubのリンクは無視してください。
 
         論文タイトル: {title}
         アブストラクト: {abstract}
@@ -52,7 +56,7 @@ def summarize_paper_vllm(paper):
 
     # --- 2) サンプリングパラメータ ---
     sampling_params = SamplingParams(
-        max_tokens=1024,
+        max_tokens=2048,
         temperature=0.7,
         top_k=50,
         top_p=0.9,
@@ -81,8 +85,11 @@ def summarize_paper_vllm(paper):
 
     summary_text = "\n".join(summary_texts)
 
+    summary_text = re.sub(r"\*{2}", "*", summary_text)
+    summary_text = re.sub(r'(^|\n)[ \t]*-', r'\1• ', summary_text)
+
     # --- 5) Slack用に整形 ---
-    slack_text = f"*{title}*\n<{url}>\n{summary_text.strip()}\n\n"
+    slack_text = f"*{title}* <{url}|[link]>\n\n{summary_text.strip()}\n\n"
     return slack_text
 
 
