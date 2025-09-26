@@ -11,5 +11,4 @@ wheels/
 
 logs/
 .env
-
-scripts/debug.sh
+scriptts/
