@@ -3,7 +3,7 @@
 #SBATCH --output=logs/slurm-%x-%j.out
 #SBATCH --time=00:30:00           # 最大実行時間
 #SBATCH --partition=varuna       # 利用するパーティション名
-#SBATCH --gres=gpu:4              # GPU が必要なら指定
+#SBATCH --gres=gpu:2              # GPU が必要なら指定
 #SBATCH --cpus-per-task=8         # CPU コア数
 #SBATCH --mem=48G                 # メモリ
 
