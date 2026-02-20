@@ -1,25 +1,37 @@
 import re
-from vllm import LLM, SamplingParams
-from openai_harmony import (
-    HarmonyEncodingName,
-    load_harmony_encoding,
-    Conversation,
-    Message,
-    Role,
-    SystemContent,
-    DeveloperContent,
-)
+import logging
 
-# モデルロード
-model = LLM(model="openai/gpt-oss-20b", trust_remote_code=True)
+logger = logging.getLogger(__name__)
 
-encoding = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+# --- モデルを遅延ロード（import 時にはロードしない） ---
+_model = None
+_encoding = None
+
+
+def _get_model():
+    """初回呼び出し時にのみモデルをロードする"""
+    global _model, _encoding
+    if _model is None:
+        from vllm import LLM
+        from openai_harmony import HarmonyEncodingName, load_harmony_encoding
+
+        _model = LLM(model="openai/gpt-oss-20b", trust_remote_code=True)
+        _encoding = load_harmony_encoding(HarmonyEncodingName.HARMONY_GPT_OSS)
+    return _model, _encoding
+
 
 def summarize_paper_vllm(paper):
     """
     論文情報を受け取り、日本語で要約
     Slackで見やすい形式で出力
     """
+    from vllm import SamplingParams
+    from openai_harmony import (
+        Conversation, Message, Role, SystemContent, DeveloperContent,
+    )
+
+    model, encoding = _get_model()
+
     title = paper["title"]
     abstract = paper["summary"]
     url = paper["url"]
@@ -99,6 +111,20 @@ def summarize_papers_vllm(papers):
         slack_summary = summarize_paper_vllm(p)
         summarized.append({**p, "slack_summary": slack_summary})
     return summarized
+
+
+def unload_model():
+    """モデルを GPU メモリから解放"""
+    global _model, _encoding
+    if _model is not None:
+        del _model
+        _model = None
+    _encoding = None
+    import torch, gc
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+    logger.info("モデルを解放しました")
 
 
 if __name__ == "__main__":

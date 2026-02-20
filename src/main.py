@@ -1,11 +1,12 @@
 import argparse
-from fetch_papers import select_papers
-from summarize import summarize_papers_vllm
-from post_slack import post_papers_slack
 
 
 def run_batch():
     """既存の日次バッチ処理: 新着論文を取得→要約→Slack投稿"""
+    from fetch_papers import select_papers
+    from summarize import summarize_papers_vllm
+    from post_slack import post_papers_slack
+
     # 論文を取得
     selected_papers, survey_papers = select_papers(num_main=3, num_survey=1)
     all_papers = selected_papers + survey_papers

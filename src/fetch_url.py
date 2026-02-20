@@ -5,6 +5,7 @@ URLからWebページの本文テキストを取得するモジュール
 import re
 import requests
 from bs4 import BeautifulSoup
+import trafilatura
 
 # User-Agent を設定してブロックを回避
 HEADERS = {
@@ -63,32 +64,26 @@ def fetch_webpage_text(url: str, max_length: int = MAX_TEXT_LENGTH) -> dict:
             "error": "PDF ファイルは現在未対応です。",
         }
 
-    # HTML をパース
-    soup = BeautifulSoup(response.text, "html.parser")
+    html = response.text
 
-    # タイトル取得
+    # --- 1) trafilatura で本文抽出を試みる（精度が高い） ---
+    text = trafilatura.extract(html, include_comments=False, include_tables=True) or ""
+
+    # --- 2) trafilatura で取れなければ BeautifulSoup にフォールバック ---
+    soup = BeautifulSoup(html, "html.parser")
     title = soup.title.string.strip() if soup.title and soup.title.string else url
 
-    # 不要なタグを除去
-    for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
-        tag.decompose()
+    if not text.strip():
+        for tag in soup(["script", "style", "nav", "footer", "header", "aside", "form"]):
+            tag.decompose()
 
-    # <article> タグがあればそこから本文を取得（優先）
-    article = soup.find("article")
-    if article:
-        text = article.get_text(separator="\n", strip=True)
-    else:
-        # <main> タグを試す
-        main = soup.find("main")
-        if main:
-            text = main.get_text(separator="\n", strip=True)
+        # <article> → <main> → <body> の順で取得
+        for container in [soup.find("article"), soup.find("main"), soup.find("body")]:
+            if container:
+                text = container.get_text(separator="\n", strip=True)
+                break
         else:
-            # body 全体からテキストを取得
-            body = soup.find("body")
-            if body:
-                text = body.get_text(separator="\n", strip=True)
-            else:
-                text = soup.get_text(separator="\n", strip=True)
+            text = soup.get_text(separator="\n", strip=True)
 
     # 連続する空行を圧縮
     text = re.sub(r'\n{3,}', '\n\n', text)
