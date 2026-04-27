@@ -1,38 +1,78 @@
 import os
-import requests
 import dotenv
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
-# .env または環境変数から取得
 dotenv.load_dotenv()
-SLACK_WEBHOOK_URL = os.environ.get("SLACK_WEBHOOK_URL")
+SLACK_BOT_TOKEN = os.environ.get("SLACK_BOT_TOKEN")
+SLACK_CHANNEL_ID = os.environ.get("SLACK_CHANNEL_ID")
 
-if not SLACK_WEBHOOK_URL:
-    raise ValueError("Slack Webhook URL が設定されていません。")
+if not SLACK_BOT_TOKEN or not SLACK_CHANNEL_ID:
+    raise ValueError("Slack Bot Token または Channel ID が設定されていません。")
 
+client = WebClient(token=SLACK_BOT_TOKEN)
 
 def post_papers_slack(papers):
     """
-    論文リストを Slack に投稿
-    Args:
-        papers (list[dict]): 各論文の slack_summary を含む辞書
+    論文リストを Slack に投稿（親メッセージに一覧、スレッドに要約）
+    親メッセージには各要約へのリンク [summary] を付与する
     """
-    blocks = []
-    for i, paper in enumerate(papers):
-        if "slack_summary" in paper:
-            blocks.append({
-                "type": "section",
-                # "text": {"type": "mrkdwn", "text": f"*論文番号{i+1}*\n{paper['slack_summary']}"}
-                "text": {"type": "mrkdwn", "text": f"{paper['slack_summary']}"}
-            })
-            blocks.append({"type": "divider"})  # 水平線
+    if not papers:
+        return
 
-    payload = {"blocks": blocks}
-    response = requests.post(SLACK_WEBHOOK_URL, json=payload)
+    try:
+        response = client.chat_postMessage(
+            channel=SLACK_CHANNEL_ID,
+            text=f"*本日の新着論文 ({len(papers)}件)*\nスレッドに要約を投稿しています...",
+            unfurl_links=False,
+            unfurl_media=False
+        )
+        thread_ts = response["ts"]
+        print("Slack 親メッセージ（仮）投稿成功")
 
-    print("投稿内容 (block 形式):")
-    for i in range(len(blocks)):
-        print(blocks[i])
-    if not response.ok:
-        print(f"Slack 投稿エラー: {response.status_code} {response.text}")
-    else:
-        print("Slack 投稿成功")
+        reply_links = []
+        for i, paper in enumerate(papers):
+            if "slack_summary" in paper:
+                blocks = [
+                    {
+                        "type": "section",
+                        "text": {"type": "mrkdwn", "text": f"{paper['slack_summary']}"}
+                    }
+                ]
+                
+                if i < len(papers) - 1:
+                    blocks.append({"type": "divider"})
+                
+                reply_res = client.chat_postMessage(
+                    channel=SLACK_CHANNEL_ID,
+                    blocks=blocks,
+                    thread_ts=thread_ts,
+                    unfurl_links=False,
+                    unfurl_media=False
+                )
+                
+                permalink_res = client.chat_getPermalink(
+                    channel=SLACK_CHANNEL_ID, 
+                    message_ts=reply_res["ts"]
+                )
+                reply_links.append(permalink_res["permalink"])
+            else:
+                reply_links.append(None)
+                
+        print("Slack スレッドへの要約投稿成功")
+
+        main_text = f"*本日の新着論文 ({len(papers)}件)*\n\n"
+        for i, paper in enumerate(papers):
+            title = paper.get('title', f'論文 {i+1}')
+            summary_link = f" <{reply_links[i]}|[summary]>" if reply_links[i] else ""
+            main_text += f"•  {title}{summary_link}\n"
+            
+        client.chat_update(
+            channel=SLACK_CHANNEL_ID,
+            ts=thread_ts,
+            text=main_text
+        )
+        print("Slack 親メッセージの更新（リンク追加）成功")
+
+    except SlackApiError as e:
+        print(f"Slack 投稿エラー: {e.response['error']}")
