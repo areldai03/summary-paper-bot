@@ -101,7 +101,7 @@ def summarize_paper_vllm(paper):
     summary_text = re.sub(r'(^|\n)[ \t]*-', r'\1• ', summary_text)
 
     # --- 5) Slack用に整形 ---
-    slack_text = f"*{title}* <{url}|[link]>\n\n{summary_text.strip()}\n\n"
+    slack_text = f"*{title}* <{url}|[arXiv]>\n\n{summary_text.strip()}\n\n"
     return slack_text
 
 
