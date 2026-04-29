@@ -1,4 +1,5 @@
 import argparse
+import sys
 
 
 def run_batch():
@@ -6,6 +7,7 @@ def run_batch():
     from fetch_papers import select_papers
     from summarize import summarize_papers_vllm
     from post_slack import post_papers_slack
+    from summarize import unload_model
 
     # 論文を取得
     selected_papers, survey_papers = select_papers(num_main=3, num_survey=1)
@@ -20,6 +22,9 @@ def run_batch():
 
     # Slackに投稿
     post_papers_slack(summarized_papers)
+    
+    unload_model()
+    sys.exit(0)
 
 
 def run_bot():
