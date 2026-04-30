@@ -46,6 +46,7 @@ def fetch_papers(query: str = "cs.CL", max_results: int = 3):
             "title": result.title.strip().replace("\n", " "),
             "summary": result.summary.strip().replace("\n", " "),
             "url": result.entry_id,
+            "pdf_url": result.pdf_url or result.entry_id.replace("abs", "pdf") + ".pdf",
             "published": result.published.strftime("%Y-%m-%d"),
             "updated": result.updated.strftime("%Y-%m-%d"),
         })
